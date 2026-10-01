@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect coding-agent conversations hourly
+
+[Timer]
+OnStartupSec=1min
+OnUnitActiveSec=1h
+Unit=agent-echo.service
+
+[Install]
+WantedBy=timers.target

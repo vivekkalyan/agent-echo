@@ -1,0 +1,7 @@
+[Unit]
+Description=Archive coding-agent conversations
+
+[Service]
+Type=oneshot
+ExecStart=%h/.cargo/bin/agent-echo --config %h/.config/agent-echo/config.toml collect
+Nice=10
