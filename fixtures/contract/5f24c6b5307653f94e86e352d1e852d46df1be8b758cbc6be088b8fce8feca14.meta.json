@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "provider": "codex",
+  "producer": "example-machine",
+  "source_id": "5f24c6b5307653f94e86e352d1e852d46df1be8b758cbc6be088b8fce8feca14",
+  "conversation_id": "example-conversation",
+  "parent_conversation_id": null,
+  "source_path": "/example/native/rollout-example.jsonl",
+  "source_name": "rollout-example.jsonl",
+  "transcript_file": "5f24c6b5307653f94e86e352d1e852d46df1be8b758cbc6be088b8fce8feca14.jsonl.gz",
+  "raw_sha256": "c42e1864d4fb44268963b5948ccb1b303a5c24a923907d00f2673873b7aa387f",
+  "raw_bytes": 1975,
+  "captured_at": 1767268807,
+  "attachments": []
+}

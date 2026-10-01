@@ -1,0 +1,43 @@
+name: Release artifacts
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  binary:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.91.1
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --locked --all-targets
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package binary
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          mkdir -p dist/package
+          cp "target/$TARGET/release/agent-echo" LICENSE README.md config.example.toml dist/package/
+          tar -czf "dist/agent-echo-$TARGET.tar.gz" -C dist/package .
+          cd dist
+          shasum -a 256 "agent-echo-$TARGET.tar.gz" > "agent-echo-$TARGET.tar.gz.sha256"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: agent-echo-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256

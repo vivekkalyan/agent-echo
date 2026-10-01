@@ -1,0 +1,9 @@
+archive_root = "/absolute/path/to/vault/Agent Archives"
+state_dir = "/absolute/path/to/local/agent-echo-state"
+producer = "my-unique-machine-name"
+
+# Defaults are CODEX_HOME or ~/.codex, and CLAUDE_CONFIG_DIR or ~/.claude.
+# codex_home = "/absolute/path/to/.codex"
+# claude_home = "/absolute/path/to/.claude"
+
+max_compressed_transcript_bytes = 200000000
