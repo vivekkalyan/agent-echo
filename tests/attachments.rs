@@ -337,10 +337,14 @@ fn oversized_attachment_metadata_falls_back_without_losing_native_transcript() {
     assert_eq!(report["updated"], 1);
     assert_eq!(report["omissions"], 1);
     assert!(
-        report["sources"][0]["diagnostics"][0]
-            .as_str()
+        report["sources"][0]["diagnostics"]
+            .as_array()
             .unwrap()
-            .contains("1 attachment mappings omitted from sidecar")
+            .iter()
+            .any(|diagnostic| diagnostic
+                .as_str()
+                .unwrap()
+                .contains("1 attachment mappings omitted from sidecar"))
     );
     assert_eq!(metadata(&path)["attachments"], json!([]));
     assert_eq!(metadata(&path)["raw_bytes"], native.len());

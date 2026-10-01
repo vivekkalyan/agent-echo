@@ -2,6 +2,7 @@ use crate::{
     attachments::{self, Attachment},
     config::{Config, checked_path},
     filesystem::{atomic_write, open_lock, open_regular},
+    metadata::{self, DisplayMetadata},
     sources::{self, Source},
 };
 use anyhow::{Context, Result, bail};
@@ -33,6 +34,8 @@ struct Metadata {
     raw_bytes: u64,
     captured_at: u64,
     attachments: Vec<Attachment>,
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
+    display: Option<DisplayMetadata>,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -122,6 +125,7 @@ pub fn collect(config: &Config) -> Result<Report> {
             return Ok(report);
         }
     };
+    let titles = metadata::codex_titles(&config.codex_home);
     for source in sources {
         let id = sources::source_id(&config.producer, &source);
         let mut entry = SourceReport {
@@ -133,7 +137,14 @@ pub fn collect(config: &Config) -> Result<Report> {
             diagnostics: Vec::new(),
             error: None,
         };
-        match capture(config, &source, &id, published.get(&id), &mut entry) {
+        match capture(
+            config,
+            &source,
+            &id,
+            published.get(&id),
+            &titles,
+            &mut entry,
+        ) {
             Ok(changed) => {
                 entry.outcome = if changed {
                     report.updated += 1;
@@ -186,6 +197,7 @@ fn capture(
     source: &Source,
     id: &str,
     published: Option<&Vec<PathBuf>>,
+    titles: &BTreeMap<String, String>,
     entry: &mut SourceReport,
 ) -> Result<bool> {
     let snapshot = sources::snapshot(source)?;
@@ -244,6 +256,10 @@ fn capture(
         .filter(|m| m.raw_sha256 == snapshot.digest)
         .map(|m| m.captured_at)
         .unwrap_or_else(now);
+    let title = (source.provider == sources::Provider::Codex)
+        .then(|| titles.get(&snapshot.conversation))
+        .flatten();
+    let display = snapshot.summary.finish(title);
     let mut metadata = Metadata {
         schema_version: 1,
         provider: source.provider.name().into(),
@@ -262,8 +278,16 @@ fn capture(
         raw_bytes: snapshot.bytes.len() as u64,
         captured_at,
         attachments,
+        display: Some(display),
     };
     let mut metadata_bytes = serde_json::to_vec_pretty(&metadata)?;
+    if metadata_bytes.len() as u64 > MAX_METADATA_BYTES {
+        metadata.display = None;
+        entry.diagnostics.push(format!(
+            "metadata exceeded {MAX_METADATA_BYTES} bytes; optional display metadata omitted"
+        ));
+        metadata_bytes = serde_json::to_vec_pretty(&metadata)?;
+    }
     if metadata_bytes.len() as u64 > MAX_METADATA_BYTES {
         entry.omissions = metadata.attachments.len();
         entry.diagnostics.push(format!("metadata exceeded {MAX_METADATA_BYTES} bytes; {} attachment mappings omitted from sidecar", metadata.attachments.len()));

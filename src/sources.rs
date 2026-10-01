@@ -2,6 +2,7 @@ use crate::{
     attachments,
     config::{Config, checked_path},
     filesystem::open_regular,
+    metadata::NativeSummary,
 };
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
@@ -44,6 +45,7 @@ pub struct Snapshot {
     pub references: BTreeSet<String>,
     pub cwd: Option<PathBuf>,
     pub diagnostics: Vec<String>,
+    pub summary: NativeSummary,
 }
 
 pub fn hash(bytes: &[u8]) -> String {
@@ -221,6 +223,7 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
     let mut references = BTreeSet::new();
     let mut diagnostics = Vec::new();
     let mut unknown_types = BTreeSet::new();
+    let mut summary = NativeSummary::new(source.provider, &source.logical_path);
     let lines: Vec<_> = bytes.split(|b| *b == b'\n').collect();
     let final_record = lines
         .iter()
@@ -246,6 +249,7 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
             }
         };
         let payload = record.get("payload").unwrap_or(&record);
+        summary.observe(&record);
         match source.provider {
             Provider::Codex => {
                 if record.get("type").and_then(Value::as_str) == Some("session_meta") {
@@ -284,6 +288,7 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
                         | "queue-operation"
                         | "last-prompt"
                         | "custom-title"
+                        | "ai-title"
                         | "agent-name"
                         | "tag"
                 ),
@@ -331,6 +336,7 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
         references,
         cwd,
         diagnostics,
+        summary,
     })
 }
 
