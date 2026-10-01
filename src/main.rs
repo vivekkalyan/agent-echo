@@ -2,6 +2,7 @@ mod archive;
 mod attachments;
 mod config;
 mod filesystem;
+mod metadata;
 mod sources;
 
 use anyhow::Result;

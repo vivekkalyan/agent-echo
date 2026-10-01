@@ -32,7 +32,9 @@ Enable syncing of other file types in Obsidian Sync so gzip transcripts and JSON
 
 Full transcript bytes include tool activity, internal context, and inline media. Separate referenced attachments have a default 20 MB cap. Missing, disallowed, or oversized attachments have omission records. Configure attachment roots narrowly; the collector never downloads remote URLs.
 
-Each source file has one current gzip archive and an optional hash-bound metadata sidecar. A native conversation may contain multiple source pages. Every page is preserved. Source rewrites replace the current snapshot, so messages genuinely removed by the source can disappear from that snapshot. There is no separate revision-history system.
+Each source file has one current gzip archive and an optional hash-bound metadata sidecar. A native conversation may have several source files, including versions retained by Codex after a revert. Each file is preserved separately. Rewriting a source file replaces its current archive snapshot, so messages removed from that file can disappear from its snapshot. The collector does not create additional revisions of its own.
+
+Sidecars include optional titles, first prompts, working directories, and native message timestamps for conversation pickers. Codex names come from its local session index. Claude names come from native title records. Missing names leave the first prompt available as a fallback. Renaming a conversation updates its sidecar without rewriting unchanged transcript bytes.
 
 The default compressed-file cap is 200 MB. Oversized captures fail without replacing an existing archive. Obsidian Sync may retain its own older versions, which consume additional quota.
 
