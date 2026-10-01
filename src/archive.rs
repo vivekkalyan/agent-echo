@@ -1,4 +1,5 @@
 use crate::{
+    attachments::{self, Attachment},
     config::{Config, checked_path},
     filesystem::{atomic_write, open_lock, open_regular},
     sources::{self, Source},
@@ -31,7 +32,7 @@ struct Metadata {
     raw_sha256: String,
     raw_bytes: u64,
     captured_at: u64,
-    attachments: [(); 0],
+    attachments: Vec<Attachment>,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -44,6 +45,8 @@ pub struct Report {
     pub updated: usize,
     pub unchanged: usize,
     pub errors: usize,
+    #[serde(default)]
+    pub omissions: usize,
     pub sources: Vec<SourceReport>,
     pub diagnostics: Vec<String>,
     #[serde(default)]
@@ -56,6 +59,8 @@ pub struct SourceReport {
     source_id: String,
     outcome: String,
     archive: Option<PathBuf>,
+    #[serde(default)]
+    omissions: usize,
     diagnostics: Vec<String>,
     error: Option<String>,
 }
@@ -124,6 +129,7 @@ pub fn collect(config: &Config) -> Result<Report> {
             source_id: id.clone(),
             outcome: "error".into(),
             archive: None,
+            omissions: 0,
             diagnostics: Vec::new(),
             error: None,
         };
@@ -137,6 +143,7 @@ pub fn collect(config: &Config) -> Result<Report> {
                     "unchanged"
                 }
                 .into();
+                report.omissions += entry.omissions;
             }
             Err(error) => {
                 report.errors += 1;
@@ -223,11 +230,21 @@ fn capture(
             config.max_compressed_transcript_bytes
         );
     }
+    let attachments = attachments::capture(
+        config,
+        &snapshot,
+        directory,
+        previous
+            .as_ref()
+            .map(|m| m.attachments.as_slice())
+            .unwrap_or(&[]),
+    )?;
+    entry.omissions = attachments.iter().filter(|a| a.omitted()).count();
     let captured_at = current
         .filter(|m| m.raw_sha256 == snapshot.digest)
         .map(|m| m.captured_at)
         .unwrap_or_else(now);
-    let metadata = Metadata {
+    let mut metadata = Metadata {
         schema_version: 1,
         provider: source.provider.name().into(),
         producer: config.producer.clone(),
@@ -244,9 +261,15 @@ fn capture(
         raw_sha256: snapshot.digest,
         raw_bytes: snapshot.bytes.len() as u64,
         captured_at,
-        attachments: [],
+        attachments,
     };
-    let metadata_bytes = serde_json::to_vec_pretty(&metadata)?;
+    let mut metadata_bytes = serde_json::to_vec_pretty(&metadata)?;
+    if metadata_bytes.len() as u64 > MAX_METADATA_BYTES {
+        entry.omissions = metadata.attachments.len();
+        entry.diagnostics.push(format!("metadata exceeded {MAX_METADATA_BYTES} bytes; {} attachment mappings omitted from sidecar", metadata.attachments.len()));
+        metadata.attachments.clear();
+        metadata_bytes = serde_json::to_vec_pretty(&metadata)?;
+    }
     let changed_archive = match compressed {
         Some(bytes) => atomic_write(&archive, &bytes)?,
         None => false,

@@ -10,7 +10,7 @@ Build and install the command with Rust 1.91 or newer.
 cargo install --path . --locked
 ```
 
-Copy `config.example.toml` to your configuration directory. Set a unique producer identity for each machine, the archive destination inside your vault, and a state directory outside the vault. Configure the native application homes you want to collect.
+Copy `config.example.toml` to your configuration directory. Set a unique producer identity for each machine, the archive destination inside your vault, and a state directory outside the vault. Configure the native application homes and attachment roots you want to collect.
 
 ```sh
 agent-echo --config ~/.config/agent-echo/config.toml check-config
@@ -20,7 +20,7 @@ agent-echo --config ~/.config/agent-echo/config.toml status
 
 Collection writes the latest complete snapshot of each native source file. A changing file or malformed final JSON record postpones that file until a later run, retaining any previous snapshot. Malformed interior records remain preserved. An unchanged transcript keeps the same archive bytes and modification time. Deleting a native source does not delete its archive. Agent Echo never prunes old conversations to make room.
 
-The command reports capture failures. A successful capture means that the local archive was written. It does not prove that Obsidian Sync uploaded it.
+The command reports capture failures and deliberately omitted attachments. A successful capture means that the local archive was written. It does not prove that Obsidian Sync uploaded it.
 
 ## Schedule and synchronize
 
@@ -30,7 +30,7 @@ Enable syncing of other file types in Obsidian Sync so gzip transcripts and JSON
 
 ## What gets preserved
 
-Full transcript bytes include tool activity, internal context, and inline media. Separate referenced files are not copied yet; attachment preservation will follow in a separate change.
+Full transcript bytes include tool activity, internal context, and inline media. Separate referenced attachments have a default 20 MB cap. Missing, disallowed, or oversized attachments have omission records. Configure attachment roots narrowly; the collector never downloads remote URLs.
 
 Each source file has one current gzip archive and an optional hash-bound metadata sidecar. A native conversation may contain multiple source pages. Every page is preserved. Source rewrites replace the current snapshot, so messages genuinely removed by the source can disappear from that snapshot. There is no separate revision-history system.
 

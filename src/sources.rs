@@ -1,4 +1,5 @@
 use crate::{
+    attachments,
     config::{Config, checked_path},
     filesystem::open_regular,
 };
@@ -40,6 +41,8 @@ pub struct Snapshot {
     pub digest: String,
     pub conversation: String,
     pub parent: Option<String>,
+    pub references: BTreeSet<String>,
+    pub cwd: Option<PathBuf>,
     pub diagnostics: Vec<String>,
 }
 
@@ -214,6 +217,8 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
     let mut conversation = None;
     let mut parent = None;
     let mut agent = None;
+    let mut cwd = None;
+    let mut references = BTreeSet::new();
     let mut diagnostics = Vec::new();
     let mut unknown_types = BTreeSet::new();
     let lines: Vec<_> = bytes.split(|b| *b == b'\n').collect();
@@ -248,11 +253,13 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
                     parent = parent
                         .or_else(|| string(payload, "forked_from_id"))
                         .or_else(|| string(payload, "parent_thread_id"));
+                    cwd = cwd.or_else(|| string(payload, "cwd").map(PathBuf::from));
                 }
             }
             Provider::Claude => {
                 conversation = conversation.or_else(|| string(&record, "sessionId"));
                 agent = agent.or_else(|| string(&record, "agentId"));
+                cwd = cwd.or_else(|| string(&record, "cwd").map(PathBuf::from));
             }
         }
         if !record.is_object() || record.get("type").and_then(Value::as_str).is_none() {
@@ -288,6 +295,7 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
                 ));
             }
         }
+        attachments::references(source.provider, &record, &mut references);
     }
     let fallback = source.paths[0]
         .file_name()
@@ -320,6 +328,8 @@ pub fn snapshot(source: &Source) -> Result<Snapshot> {
         digest,
         conversation,
         parent,
+        references,
+        cwd,
         diagnostics,
     })
 }
