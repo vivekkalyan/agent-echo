@@ -6,4 +6,7 @@ producer = "my-unique-machine-name"
 # codex_home = "/absolute/path/to/.codex"
 # claude_home = "/absolute/path/to/.claude"
 
+# Omit to authorize only <codex_home>/attachments. [] disables attachment copies.
+# attachment_roots = ["/absolute/path/to/.codex/attachments"]
+max_attachment_bytes = 20000000
 max_compressed_transcript_bytes = 200000000

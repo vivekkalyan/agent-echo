@@ -155,7 +155,7 @@ fn compressed_cap_failure_keeps_previous_snapshot() {
     let first = fixture.collect(true);
     let path = archive(&first, 0);
     let before = fs::read(&path).unwrap();
-    fixture.config(20);
+    fixture.config(20_000_000, 20);
     fixture.write("codex/sessions/one.jsonl", codex("one", "a replacement"));
     let report = fixture.collect(false);
     assert_eq!(report["errors"], 1);
@@ -433,4 +433,32 @@ fn config_is_required_by_cli_parser() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("--config <CONFIG>"));
     let fixture = Fixture::new();
     assert!(fixture.run("check-config").status.success());
+}
+
+#[test]
+fn status_reads_reports_written_before_attachment_support() {
+    let fixture = Fixture::new();
+    fixture.write("codex/sessions/one.jsonl", codex("one", "complete"));
+    let expected = fixture.collect(true);
+    let mut legacy = expected.clone();
+    legacy.as_object_mut().unwrap().remove("omissions");
+    for source in legacy["sources"].as_array_mut().unwrap() {
+        source.as_object_mut().unwrap().remove("omissions");
+    }
+    let report_path = fs::read_dir(fixture.path("state"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| path.extension().unwrap() == "json")
+        .unwrap();
+    let bytes = serde_json::to_vec(&legacy).unwrap();
+    fs::write(&report_path, &bytes).unwrap();
+    let output = fixture.run("status");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let status: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(status, expected);
+    assert_eq!(fs::read(report_path).unwrap(), bytes);
 }

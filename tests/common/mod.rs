@@ -16,19 +16,20 @@ impl Fixture {
         let fixture = Self {
             root: tempfile::tempdir().unwrap(),
         };
-        fixture.config(200_000_000);
+        fixture.config(20_000_000, 200_000_000);
         fixture
     }
     pub fn path(&self, relative: &str) -> PathBuf {
         self.root.path().join(relative)
     }
-    pub fn config(&self, transcript_cap: u64) {
+    pub fn config(&self, attachment_cap: u64, transcript_cap: u64) {
         let config = format!(
-            "archive_root = {:?}\nstate_dir = {:?}\nproducer = \"test-machine\"\ncodex_home = {:?}\nclaude_home = {:?}\nmax_compressed_transcript_bytes = {transcript_cap}\n",
+            "archive_root = {:?}\nstate_dir = {:?}\nproducer = \"test-machine\"\ncodex_home = {:?}\nclaude_home = {:?}\nattachment_roots = [{:?}]\nmax_attachment_bytes = {attachment_cap}\nmax_compressed_transcript_bytes = {transcript_cap}\n",
             self.path("archive"),
             self.path("state"),
             self.path("codex"),
-            self.path("claude")
+            self.path("claude"),
+            self.path("media")
         );
         fs::write(self.path("config.toml"), config).unwrap();
     }

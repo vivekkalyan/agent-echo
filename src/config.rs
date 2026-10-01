@@ -15,6 +15,10 @@ pub struct Config {
     pub codex_home: PathBuf,
     #[serde(default = "claude_home")]
     pub claude_home: PathBuf,
+    #[serde(default)]
+    pub attachment_roots: Option<Vec<PathBuf>>,
+    #[serde(default = "attachment_cap")]
+    pub max_attachment_bytes: u64,
     #[serde(default = "transcript_cap")]
     pub max_compressed_transcript_bytes: u64,
 }
@@ -32,6 +36,9 @@ fn claude_home() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| home().join(".claude"))
 }
+fn attachment_cap() -> u64 {
+    20_000_000
+}
 fn transcript_cap() -> u64 {
     200_000_000
 }
@@ -44,13 +51,18 @@ impl Config {
         if config.producer.trim().is_empty() || config.producer.len() > 200 {
             bail!("producer must contain 1 to 200 bytes and identify this machine");
         }
-        if config.max_compressed_transcript_bytes == 0 {
+        if config.max_attachment_bytes == 0 || config.max_compressed_transcript_bytes == 0 {
             bail!("size caps must be positive");
         }
         config.archive_root = absolute(&config.archive_root)?;
         config.state_dir = absolute(&config.state_dir)?;
         config.codex_home = absolute(&config.codex_home)?;
         config.claude_home = absolute(&config.claude_home)?;
+        let roots = config
+            .attachment_roots
+            .take()
+            .unwrap_or_else(|| vec![config.codex_home.join("attachments")]);
+        config.attachment_roots = Some(roots.iter().map(|p| absolute(p)).collect::<Result<_>>()?);
         let directories = [
             &config.archive_root,
             &config.state_dir,
@@ -72,6 +84,15 @@ impl Config {
                         right.display()
                     );
                 }
+            }
+        }
+        for root in config.attachment_roots.as_ref().unwrap() {
+            checked_path(root)?;
+            if root.exists() && !root.is_dir() {
+                bail!("attachment root is not a directory: {}", root.display());
+            }
+            if overlap(root, &config.archive_root) || overlap(root, &config.state_dir) {
+                bail!("attachment roots must not overlap archive_root or state_dir");
             }
         }
         if fs::canonicalize(path)?.starts_with(&config.archive_root) {

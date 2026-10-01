@@ -1,4 +1,5 @@
 mod archive;
+mod attachments;
 mod config;
 mod filesystem;
 mod sources;
@@ -19,7 +20,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Capture complete native transcripts locally.
+    /// Capture complete native transcripts and eligible attachments locally.
     Collect,
     /// Show the last local collection report, without collecting.
     Status,
